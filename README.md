@@ -142,7 +142,7 @@ Gemma 4 E2B is the only model that checks all five boxes.
 #### 1️⃣ Clone & Install
 
 ```bash
-git clone https://github.com/ayushh0110/screenmind.git
+git clone https://github.com/ayushh0110/ScreenMind.git
 cd screenmind
 
 python -m venv venv
@@ -589,8 +589,8 @@ If you find ScreenMind useful, please consider:
 
 <br>
 
-<a href="https://github.com/ayushh0110/screenmind/stargazers"><img src="https://img.shields.io/github/stars/ayushh0110/screenmind?style=social" alt="Stars"></a>
-<a href="https://github.com/ayushh0110/screenmind/network/members"><img src="https://img.shields.io/github/forks/ayushh0110/screenmind?style=social" alt="Forks"></a>
+<a href="https://github.com/ayushh0110/ScreenMind/stargazers"><img src="https://img.shields.io/github/stars/ayushh0110/ScreenMind?style=social" alt="Stars"></a>
+<a href="https://github.com/ayushh0110/ScreenMind/network/members"><img src="https://img.shields.io/github/forks/ayushh0110/ScreenMind?style=social" alt="Forks"></a>
 
 <br>
 
