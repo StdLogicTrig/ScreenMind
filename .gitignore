@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+
+# ScreenMind Data (user-specific, never commit)
+data/
+screenshots/
+*.db
+*.db-wal
+*.db-shm
+settings.json
+
+# Models (too large for git)
+*.gguf
+models/
+
+# llama.cpp binaries (too large for git, users download separately)
+llama/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Test cache
+.pytest_cache/
+
+# Strategy notes (internal)
+strategy_notes/
