@@ -537,33 +537,6 @@ Dark glassmorphism UI. No build step. Instant load.
 
 ---
 
-## 📋 Build with Gemma 4
-
-This project was built for the **[Build with Gemma 4](https://ai.google.dev/competition)** hackathon.
-
-### The Model Choice Isn't a Preference — It's an Architectural Requirement
-
-ScreenMind doesn't just "use" Gemma 4. It's **impossible without it**:
-
-- **Vision** — understands screenshots natively (no OCR-only pipeline)
-- **Audio** — transcribes voice memos and meetings (no Whisper dependency)
-- **Reasoning** — generates summaries, answers questions, powers agents
-- **Size** — E2B fits in 4GB VRAM for continuous background operation
-- **Local** — GGUF format runs via llama.cpp with zero cloud dependency
-
-No other model family offers vision + audio + reasoning at this size, locally.
-
-### What We Demonstrate
-
-- Multimodal vision: activity classification from raw screenshots
-- Native audio: transcription without external ASR models
-- Structured output: reliable JSON extraction from visual input
-- Deep reasoning: daily summaries with `think=True`
-- Continuous operation: background inference without killing the machine
-- Multi-model orchestration: Gemma 4 as the brain, OCR + embeddings as supporting cast
-
----
-
 ## 🤝 Contributing
 
 Contributions welcome! Here are some high-impact areas:
@@ -614,6 +587,6 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 <br>
 
-<sub>Made with ❤️ for the <a href="https://ai.google.dev/competition">Build with Gemma 4</a> hackathon</sub>
+<sub>Made with ❤️ by <a href="https://github.com/ayushh0110">ayushh0110</a></sub>
 
 </div>
