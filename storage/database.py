@@ -87,6 +87,7 @@ class Database:
                 id                  INTEGER PRIMARY KEY AUTOINCREMENT,
                 date                DATE UNIQUE NOT NULL,
                 summary             TEXT,
+                standup             TEXT,
                 total_activities    INTEGER DEFAULT 0,
                 category_breakdown  TEXT,
                 top_repos           TEXT,
@@ -488,15 +489,21 @@ class Database:
 
     # ── Daily Summary ────────────────────────────────────────────────────
 
-    def upsert_daily_summary(self, summary: DailySummary):
+    def upsert_daily_summary(self, summary: DailySummary, standup: str = ""):
         """Insert or update a daily summary."""
         conn = self._get_conn()
+        # Migrate: add standup column if missing
+        try:
+            conn.execute("ALTER TABLE daily_summaries ADD COLUMN standup TEXT")
+        except Exception:
+            pass  # Column already exists
         conn.execute(
             """
-            INSERT INTO daily_summaries (date, summary, total_activities, category_breakdown, top_repos, productive_hours)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO daily_summaries (date, summary, standup, total_activities, category_breakdown, top_repos, productive_hours)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(date) DO UPDATE SET
-                summary = excluded.summary,
+                summary = COALESCE(NULLIF(excluded.summary, ''), daily_summaries.summary),
+                standup = COALESCE(NULLIF(excluded.standup, ''), daily_summaries.standup),
                 total_activities = excluded.total_activities,
                 category_breakdown = excluded.category_breakdown,
                 top_repos = excluded.top_repos,
@@ -505,6 +512,7 @@ class Database:
             (
                 summary.date,
                 summary.summary,
+                standup,
                 summary.total_activities,
                 json.dumps(summary.category_breakdown),
                 json.dumps(summary.top_repos),

@@ -53,6 +53,10 @@ async function loadExistingSummary() {
     if (data.generated && data.summary) {
       $('#summary-body').innerHTML = `<div class="summary-content">${data.summary.summary || ''}</div>`;
     }
+    if (data.standup) {
+      $('#standup-body').innerHTML = `<div class="standup-box">${data.standup}</div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:12px" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent).then(()=>{this.textContent='✓ Copied!';setTimeout(()=>this.textContent='📋 Copy',1500)})">📋 Copy</button>`;
+    }
   } catch {}
 }
 

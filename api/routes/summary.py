@@ -16,7 +16,7 @@ async def get_summary(
 ):
     target = date or str(__import__("datetime").date.today())
     summary = db.get_daily_summary(target)
-    return {"date": target, "generated": summary is not None, "summary": summary}
+    return {"date": target, "generated": summary is not None, "summary": summary, "standup": (summary or {}).get("standup", "")}
 
 
 @router.post("/summary/generate")
@@ -158,6 +158,18 @@ Activities:
         )
     except Exception as e:
         standup = f"Standup generation failed: {e}"
+
+    # Save standup to DB alongside summary
+    from storage.models import DailySummary
+    standup_summary = DailySummary(
+        date=target,
+        summary="",  # Don't overwrite existing summary
+        total_activities=len(activities),
+    )
+    db.upsert_daily_summary(standup_summary, standup=standup)
+
+    # Fire integrations
+    _fire_summary_integrations(target, "", standup, len(activities))
 
     return {"date": target, "standup": standup}
 

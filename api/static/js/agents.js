@@ -465,14 +465,44 @@ window.viewAgentOutputs = async function(name) {
     return;
   }
 
-  var html = '<div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:12px">' + data.total + ' total output(s)</div>';
-  outputs.forEach(function(o) {
-    html += '<div style="background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px;margin-bottom:10px">';
-    html += '<div style="font-size:0.78rem;color:var(--accent);margin-bottom:8px;font-weight:600">' + o.date + '</div>';
-    html += '<div style="font-size:0.82rem;color:var(--text);white-space:pre-wrap;line-height:1.6;max-height:200px;overflow-y:auto">' + o.content.replace(/</g, '&lt;').replace(/\n/g, '<br>') + '</div>';
+  function _renderOutput(o) {
+    return '<div style="background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px;margin-bottom:10px">'
+      + '<div style="font-size:0.78rem;color:var(--accent);margin-bottom:8px;font-weight:600">' + o.date + '</div>'
+      + '<div style="font-size:0.82rem;color:var(--text);white-space:pre-wrap;line-height:1.6;max-height:300px;overflow-y:auto">' + o.content.replace(/</g, '&lt;').replace(/\n/g, '<br>') + '</div>'
+      + '</div>';
+  }
+
+  // Show latest output
+  var html = '<div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px">Latest run</div>';
+  html += _renderOutput(outputs[0]);
+
+  // Show all runs button (if more than 1)
+  if (outputs.length > 1) {
+    html += '<div style="text-align:center;margin:12px 0">'
+      + '<button class="btn btn-ghost btn-sm" id="show-all-outputs-btn" style="font-size:0.78rem" onclick="toggleAllOutputs()">📜 Show all ' + outputs.length + ' runs ▼</button>'
+      + '</div>';
+    html += '<div id="all-outputs-list" style="display:none">';
+    html += '<div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px">Previous runs</div>';
+    outputs.slice(1).forEach(function(o) { html += _renderOutput(o); });
     html += '</div>';
-  });
+  } else {
+    html += '<div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px">1 total run</div>';
+  }
+
   el.innerHTML = html;
+};
+
+window.toggleAllOutputs = function() {
+  var list = document.getElementById('all-outputs-list');
+  var btn = document.getElementById('show-all-outputs-btn');
+  if (!list || !btn) return;
+  if (list.style.display === 'none') {
+    list.style.display = 'block';
+    btn.textContent = '📜 Hide previous runs ▲';
+  } else {
+    list.style.display = 'none';
+    btn.textContent = btn.textContent.replace('▲', '▼').replace('Hide previous runs', 'Show all runs');
+  }
 };
 
 window.closeOutputViewer = function() {

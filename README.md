@@ -23,7 +23,11 @@
 
 <br>
 
-<!-- Add screenshot here: ![Dashboard](docs/screenshots/dashboard.png) -->
+![Timeline — AI-analyzed screen activity feed](docs/screenshots/agents.png)
+
+| Agents | Chat with your memory |
+|:---:|:---:|
+| ![Agents](docs/screenshots/timeline.png) | ![Chat](docs/screenshots/chat.png) |
 
 </div>
 

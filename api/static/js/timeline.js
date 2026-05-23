@@ -75,9 +75,41 @@ async function loadTimeline(silent = false) {
 }
 
 function meetingCard(m) {
-  // Reuse the detail card (with three-dot menu) everywhere
-  return meetingDetailCard(m);
+  const startTime = formatTime(m.start_time);
+  const endTime = m.end_time ? formatTime(m.end_time) : 'ongoing';
+  const duration = m.duration_minutes ? `${Math.round(m.duration_minutes)} min` : '';
+  const summaryText = (m.summary || 'No summary').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const transcriptText = (m.transcript || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // First meaningful line of summary for preview
+  const previewLine = summaryText.split('\n').find(l => l.trim() && !l.startsWith('⏳')) || 'Meeting recorded';
+  const tid = `tl-mtg-transcript-${m.id}`;
+  const sid = `tl-mtg-summary-${m.id}`;
+  return `
+    <div class="timeline-item tl-meeting-card" onclick="toggleTlMeeting(${m.id})">
+      <div class="thumb" style="display:flex;align-items:center;justify-content:center;font-size:2rem;background:rgba(236,72,153,0.1);cursor:pointer">🎙️</div>
+      <div class="info" style="flex:1;min-width:0">
+        <div class="top">
+          <span class="time">${startTime}</span>
+          <span class="app-name">Meeting — ${(m.app_name || 'Unknown').replace(/</g, '&lt;')}</span>
+          <span class="badge badge-other" style="background:rgba(236,72,153,0.15);color:#ec4899">meeting</span>
+        </div>
+        <div class="summary">${startTime} – ${endTime}${duration ? ' · ' + duration : ''} · ${previewLine.substring(0, 80)}${previewLine.length > 80 ? '...' : ''}</div>
+        <div class="tl-meeting-detail" id="${sid}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06)">
+          <div style="white-space:pre-wrap;font-size:0.82rem;line-height:1.6;color:var(--text-secondary)">${summaryText}</div>
+          ${transcriptText && transcriptText !== '(No speech detected)' ? `
+            <button class="meeting-transcript-toggle" style="margin-top:8px" onclick="event.stopPropagation(); var t=document.getElementById('${tid}'); t.classList.toggle('open'); this.textContent = t.classList.contains('open') ? '▲ Hide transcript' : '▼ Show full transcript'">▼ Show full transcript</button>
+            <div class="meeting-transcript" id="${tid}">${transcriptText}</div>
+          ` : ''}
+        </div>
+      </div>
+      <div style="color:var(--text-muted);font-size:0.78rem;white-space:nowrap;margin-left:8px">${duration}</div>
+    </div>`;
 }
+
+window.toggleTlMeeting = function(id) {
+  const el = document.getElementById('tl-mtg-summary-' + id);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+};
 
 function timelineCard(a, i) {
   const time = formatTime(a.timestamp);
