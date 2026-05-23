@@ -847,7 +847,9 @@ mark {
   background: var(--bg-card); border: 1px solid rgba(236,72,153,0.2);
   border-radius: var(--radius-md); padding: 20px; margin-bottom: 16px;
   backdrop-filter: blur(12px); transition: border-color 0.3s;
+  position: relative; overflow: visible;
 }
+.meeting-card:has(.card-menu.open) { z-index: 10; }
 .meeting-card:hover { border-color: rgba(236,72,153,0.4); }
 .meeting-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .meeting-icon { font-size: 1.4rem; }

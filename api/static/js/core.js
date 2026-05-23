@@ -139,8 +139,8 @@ window.toggleIncognito = async function() {
 };
 
 // ── API Client ────────────────────────────────────────────
-async function api(path) {
-  const r = await fetch(API + path);
+async function api(path, opts) {
+  const r = await fetch(API + path, opts || {});
   if (r.status === 401) {
     // Session expired — show lock screen
     _dashboardLocked = true;
@@ -153,9 +153,10 @@ async function api(path) {
   return r.json();
 }
 async function apiPost(path) {
-  const r = await fetch(API + path, { method: 'POST' });
-  if (!r.ok) throw new Error(`API ${r.status}`);
-  return r.json();
+  return api(path, { method: 'POST' });
+}
+async function apiDelete(path) {
+  return api(path, { method: 'DELETE' });
 }
 
 // ── Helpers ───────────────────────────────────────────────

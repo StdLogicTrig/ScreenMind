@@ -89,8 +89,8 @@ window.toggleIncognito = async function() {
 };
 
 // ── API Client ────────────────────────────────────────────
-async function api(path) {
-  const r = await fetch(API + path);
+async function api(path, opts) {
+  const r = await fetch(API + path, opts || {});
   if (r.status === 401) {
     // Session expired — show lock screen
     _dashboardLocked = true;
@@ -103,9 +103,10 @@ async function api(path) {
   return r.json();
 }
 async function apiPost(path) {
-  const r = await fetch(API + path, { method: 'POST' });
-  if (!r.ok) throw new Error(`API ${r.status}`);
-  return r.json();
+  return api(path, { method: 'POST' });
+}
+async function apiDelete(path) {
+  return api(path, { method: 'DELETE' });
 }
 
 // ── Helpers ───────────────────────────────────────────────
@@ -1054,15 +1055,9 @@ async function renderMeetings(el) {
   window._mtgRefresh = setInterval(() => { if (currentView === 'meetings') loadMeetingStatus(); }, 10000);
   loadMeetingStatus();
 
-  // Whisper upgrade hint
+  // Transcription quality hint — removed (Gemma handles all transcription now)
   try {
-    const cfg = await api('/api/settings');
-    const whisper = cfg.whisper_model || 'tiny';
-    if (whisper !== 'large-v3') {
-      const t = document.getElementById('mtg-hint-trigger');
-      t.style.display = 'inline-flex';
-      t.title = `Using Whisper ${whisper}. Upgrade to a larger Whisper model in Settings for better transcription accuracy.`;
-    }
+    // No Whisper model selection needed — Gemma 4's native audio encoder is used
   } catch {}
 }
 
@@ -1086,7 +1081,7 @@ async function loadMeetings() {
         <div class="empty-title">No meetings recorded</div>
         <div style="color:var(--text-muted);font-size:0.85rem;max-width:380px;margin:0 auto;line-height:1.6">
           <p>Meeting transcription is <strong>${(await api('/api/settings')).meeting_transcription ? '✅ enabled' : '❌ disabled'}</strong>.</p>
-          <p style="margin-top:8px">When enabled, ScreenMind auto-detects Zoom, Teams, Meet and other meeting apps, records audio, transcribes with Whisper, and generates Gemma-powered summaries.</p>
+          <p style="margin-top:8px">When enabled, ScreenMind auto-detects Zoom, Teams, Meet and other meeting apps, records audio, transcribes with Gemma 4's native audio encoder, and generates AI-powered summaries.</p>
           <p style="margin-top:8px;color:var(--accent)">Enable it in <a href="#settings" style="color:var(--accent);cursor:pointer" onclick="navigate('settings')">⚙️ Settings</a></p>
         </div>
       </div>`;
@@ -1869,13 +1864,11 @@ async function renderSettings(el) {
   + _sec('&#127908;', 'Audio &amp; Meetings')
   + '<div class="settings-card"><div class="settings-card-header"><div><div class="settings-title">Meeting Transcription</div><div class="settings-desc">Auto-record and summarize meetings</div></div>'
   + _sw('meeting-toggle', cfg.meeting_transcription) + '</div>'
-  + '<div class="settings-note">Requires <code>faster-whisper</code> and <code>sounddevice</code>.</div>'
+  + '<div class="settings-note">Requires <code>sounddevice</code> for audio capture. Transcription uses Gemma 4\'s native audio encoder.</div>'
   + '<div class="settings-input-row"><label class="settings-label">Meeting app keywords:</label>'
   + '<input type="text" id="meeting-apps-input" class="settings-text-input" value="' + (cfg.meeting_apps || '') + '" placeholder="zoom,teams,meet,webex,slack..."></div></div>'
 
-  + '<div class="settings-card"><div class="settings-card-header"><div><div class="settings-title">Whisper Model</div><div class="settings-desc">Speech-to-text model size</div></div></div>'
-  + '<div class="settings-note">Larger = more accurate but slower.</div>'
-  + '<div class="radio-group" id="whisper-group">' + _rp('whisper','tiny','Tiny ~75MB',cfg.whisper_model||'tiny') + _rp('whisper','base','Base ~140MB',cfg.whisper_model||'tiny') + _rp('whisper','small','Small ~460MB',cfg.whisper_model||'tiny') + _rp('whisper','medium','Medium ~1.5GB',cfg.whisper_model||'tiny') + _rp('whisper','large-v3','Large V3 ~3GB',cfg.whisper_model||'tiny') + '</div></div>'
+
 
   // ── STORAGE ──
   + _sec('&#128451;', 'Storage')
@@ -2157,7 +2150,7 @@ window.startHotkeyCapture = function(inputId) {
 window.saveSettings = async function() {
   var perf = document.querySelector('input[name="perf"]:checked');
   var retention = document.querySelector('input[name="retention"]:checked');
-  var whisper = document.querySelector('input[name="whisper"]:checked');
+
 
   var body = {
     performance_mode: perf ? perf.value : 'balanced',
@@ -2172,7 +2165,7 @@ window.saveSettings = async function() {
     meeting_transcription: document.getElementById('meeting-toggle').checked,
     meeting_apps: document.getElementById('meeting-apps-input').value,
     retention_days: retention ? parseInt(retention.value) : 7,
-    whisper_model: whisper ? whisper.value : 'tiny',
+
     // Integrations
     obsidian_enabled: (document.getElementById('obsidian-enabled') || {}).checked || false,
     obsidian_vault_path: (document.getElementById('obsidian-vault-path') || {}).value || '',

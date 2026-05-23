@@ -4,7 +4,6 @@ Auto-detects meeting apps, captures dual-channel audio (system + mic),
 transcribes with Gemma 4's native audio encoder, and generates meeting summaries.
 """
 
-import asyncio
 import io
 import time
 import threading
@@ -26,9 +25,9 @@ MEETING_APPS = None  # Loaded from settings at runtime
 MEETING_GRACE_PERIOD = 300  # 5 min — fallback for browser-based meetings
 
 # Audio probe settings — confirm voice activity before recording
-PROBE_DURATION = 1       # seconds of audio to sample per device (1s is enough)
+PROBE_DURATION = 2       # seconds of audio to sample per device
 PROBE_COOLDOWN = 5       # seconds between probes when meeting app is in foreground
-PROBE_RMS_THRESHOLD = 0.015  # minimum RMS energy to count as "voice detected" (raised: ambient mic noise is ~0.005-0.01)
+PROBE_RMS_THRESHOLD = 0.008  # minimum RMS energy to count as "voice detected" (lowered for Discord/earphone setups)
 SILENCE_AUTO_STOP_CHUNKS = 3  # stop meeting after N consecutive silent chunks (both mic+sys)
 
 # Confirmation probing — avoid false triggers from notification sounds or ambient noise
@@ -313,9 +312,10 @@ class AudioWorker:
         self._in_meeting = False
         self._stop_recording.set()
 
-        # Wait for recording thread to finish
+        # Wait for recording thread to finish (skip if called from within it)
         if self._recording_thread and self._recording_thread.is_alive():
-            self._recording_thread.join(timeout=5)
+            if threading.current_thread() != self._recording_thread:
+                self._recording_thread.join(timeout=5)
 
         end_time = datetime.now()
         duration = (end_time - self._session_start).total_seconds() / 60 if self._session_start else 0
@@ -345,12 +345,16 @@ class AudioWorker:
                 transcript=full_transcript,
                 summary="⏳ Generating summary...",
             )
-            # Trigger async summary
-            asyncio.get_event_loop().call_soon_threadsafe(
-                asyncio.ensure_future,
-                self._generate_summary(self._meeting_id, full_transcript),
+            print(f"[AudioWorker] ✅ Transcript saved ({len(full_transcript)} chars, {len(self._session_transcript)} chunks)")
+            # Trigger summary in background thread
+            summary_thread = threading.Thread(
+                target=self._generate_summary,
+                args=(self._meeting_id, full_transcript),
+                daemon=True,
             )
+            summary_thread.start()
         elif self._meeting_id:
+            print(f"[AudioWorker] ⚠️ No transcript to save (session_transcript={len(self._session_transcript)} items)")
             self._db.update_meeting(
                 meeting_id=self._meeting_id,
                 end_time=end_time,
@@ -369,8 +373,8 @@ class AudioWorker:
     def _recording_loop(self):
         """
         Background thread: capture audio in chunks and transcribe.
-        Records mic + system audio in parallel, mixes them into a single
-        stream for better Whisper context, then transcribes.
+        Records mic + system audio in parallel, transcribes each
+        separately via Gemma for speaker-labeled output.
         """
         try:
             import sounddevice as sd
@@ -513,7 +517,7 @@ class AudioWorker:
     @staticmethod
     def _normalize_audio(audio: np.ndarray) -> np.ndarray:
         """
-        Normalize audio volume for consistent Whisper input.
+        Normalize audio volume for consistent transcription input.
         Prevents issues with very quiet or very loud recordings.
         """
         if audio is None or len(audio) == 0:
@@ -564,7 +568,7 @@ class AudioWorker:
             print(f"[AudioWorker] Transcription error: {e}")
             return False
 
-    async def _generate_summary(self, meeting_id: int, transcript: str):
+    def _generate_summary(self, meeting_id: int, transcript: str):
         """Generate a structured meeting summary using Gemma.
         Uses map-reduce for long transcripts: chunk → summarize each → combine.
         """

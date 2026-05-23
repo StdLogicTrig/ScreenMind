@@ -1,6 +1,6 @@
 """Meeting routes — transcripts, summaries, CRUD."""
 
-import asyncio
+import threading
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -38,7 +38,15 @@ async def get_meeting(meeting_id: int):
 
 @router.delete("/{meeting_id}")
 async def delete_meeting(meeting_id: int):
-    """Delete a meeting by ID."""
+    """Delete a meeting by ID. Force-stops recording if this is the active meeting."""
+    # If this is the currently recording meeting, force-stop it first
+    if audio_worker and audio_worker.in_meeting and audio_worker._meeting_id == meeting_id:
+        try:
+            audio_worker.force_stop()
+            print(f"[Meetings] Force-stopped active recording for meeting {meeting_id}")
+        except Exception as e:
+            print(f"[Meetings] Force-stop failed: {e}")
+
     deleted = db.delete_meeting(meeting_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Meeting not found")
@@ -56,9 +64,11 @@ async def reanalyze_meeting(meeting_id: int):
         return {"status": "skipped", "reason": "No transcript to analyze"}
     # Mark as re-analyzing
     db.update_meeting_summary(meeting_id, "⏳ Re-generating summary...")
-    # Trigger async summary via audio worker
+    # Trigger summary in background thread
     if audio_worker:
-        asyncio.ensure_future(
-            audio_worker._generate_summary(meeting_id, transcript)
-        )
+        threading.Thread(
+            target=audio_worker._generate_summary,
+            args=(meeting_id, transcript),
+            daemon=True,
+        ).start()
     return {"status": "reanalyzing", "id": meeting_id}

@@ -22,15 +22,9 @@ async function renderMeetings(el) {
   window._mtgRefresh = setInterval(() => { if (currentView === 'meetings') loadMeetingStatus(); }, 10000);
   loadMeetingStatus();
 
-  // Whisper upgrade hint
+  // Transcription quality hint — removed (Gemma handles all transcription now)
   try {
-    const cfg = await api('/api/settings');
-    const whisper = cfg.whisper_model || 'tiny';
-    if (whisper !== 'large-v3') {
-      const t = document.getElementById('mtg-hint-trigger');
-      t.style.display = 'inline-flex';
-      t.title = `Using Whisper ${whisper}. Upgrade to a larger Whisper model in Settings for better transcription accuracy.`;
-    }
+    // No Whisper model selection needed — Gemma 4's native audio encoder is used
   } catch {}
 }
 
@@ -54,7 +48,7 @@ async function loadMeetings() {
         <div class="empty-title">No meetings recorded</div>
         <div style="color:var(--text-muted);font-size:0.85rem;max-width:380px;margin:0 auto;line-height:1.6">
           <p>Meeting transcription is <strong>${(await api('/api/settings')).meeting_transcription ? '✅ enabled' : '❌ disabled'}</strong>.</p>
-          <p style="margin-top:8px">When enabled, ScreenMind auto-detects Zoom, Teams, Meet and other meeting apps, records audio, transcribes with Whisper, and generates Gemma-powered summaries.</p>
+          <p style="margin-top:8px">When enabled, ScreenMind auto-detects Zoom, Teams, Meet and other meeting apps, records audio, transcribes with Gemma 4's native audio encoder, and generates AI-powered summaries.</p>
           <p style="margin-top:8px;color:var(--accent)">Enable it in <a href="#settings" style="color:var(--accent);cursor:pointer" onclick="navigate('settings')">⚙️ Settings</a></p>
         </div>
       </div>`;
@@ -145,7 +139,7 @@ async function reanalyzeMeeting(id) {
   const sumEl = document.getElementById(`mtg-summary-${id}`);
   if (sumEl) sumEl.textContent = '⏳ Re-generating summary...';
   try {
-    await api(`/api/meetings/${id}/reanalyze`, { method: 'POST' });
+    await apiPost(`/api/meetings/${id}/reanalyze`);
     showToast('Re-analyzing meeting — this takes ~15s...', 'info');
     // Poll every 5s until summary changes (Gemma takes 10-20s)
     let attempts = 0;
@@ -183,15 +177,30 @@ function copyMeetingSummary(id) {
 }
 
 async function deleteMeeting(id, btn) {
-  if (!btn.classList.contains('confirm-delete')) {
-    btn.classList.add('confirm-delete');
+  event.stopPropagation();  // Keep menu open
+  if (!btn.dataset.confirming) {
+    // First click — transform into confirm button
+    btn.dataset.confirming = 'true';
     btn.querySelector('.menu-icon').textContent = '⚠️';
     btn.childNodes[1].textContent = ' Confirm Delete';
-    setTimeout(() => { if (btn) { btn.classList.remove('confirm-delete'); btn.querySelector('.menu-icon').textContent = '🗑️'; btn.childNodes[1].textContent = ' Delete Meeting'; } }, 3000);
+    btn.style.color = '#ef4444';
+    // Auto-reset after 4s
+    setTimeout(() => {
+      if (btn && btn.dataset.confirming) {
+        delete btn.dataset.confirming;
+        btn.querySelector('.menu-icon').textContent = '🗑️';
+        btn.childNodes[1].textContent = ' Delete Meeting';
+        btn.style.color = '';
+      }
+    }, 4000);
     return;
   }
+  // Second click — actually delete
+  delete btn.dataset.confirming;
   try {
-    await api(`/api/meetings/${id}`, { method: 'DELETE' });
+    await apiDelete(`/api/meetings/${id}`);
+    // Close menu
+    document.querySelectorAll('.card-menu.open').forEach(m => m.classList.remove('open'));
     const card = document.getElementById(`meeting-card-${id}`);
     if (card) { card.style.transition = 'opacity 0.3s, transform 0.3s'; card.style.opacity = '0'; card.style.transform = 'translateX(40px)'; setTimeout(() => card.remove(), 300); }
     showToast('Meeting deleted', 'success');
