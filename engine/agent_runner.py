@@ -79,8 +79,9 @@ def _log_run(name: str, agent_type: str, status: str, output: str = "", error: s
     # Parse comma-separated destinations: "local", "obsidian", "webhook", or combos
     dests = {d.strip().lower() for d in output_dest.split(",")}
 
-    # Local file backup (always runs)
-    _save_agent_output(name, output)
+    # Local file backup (always runs) — use slug for consistent path
+    slug = name.lower().replace(" ", "-")
+    _save_agent_output(slug, output)
 
     # Obsidian
     if "obsidian" in dests:

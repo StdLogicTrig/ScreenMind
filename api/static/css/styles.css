@@ -183,7 +183,7 @@ input:focus, select:focus { border-color: var(--border-active); box-shadow: 0 0 
 .timeline { display: flex; flex-direction: column; gap: 12px; }
 
 .timeline-item {
-  display: flex; gap: 16px; padding: 16px; align-items: flex-start;
+  display: flex; gap: 16px; padding: 16px; align-items: flex-start; flex-wrap: wrap;
   background: var(--bg-card); border: 1px solid var(--border);
   border-radius: var(--radius-md); cursor: pointer;
   transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s, box-shadow 0.3s;
@@ -211,7 +211,7 @@ input:focus, select:focus { border-color: var(--border-active); box-shadow: 0 0 
 }
 .timeline-item:hover .thumb { transform: scale(1.05); box-shadow: 0 4px 16px rgba(0,0,0,0.5); }
 
-.timeline-item .info { flex: 1; min-width: 0; }
+.timeline-item .info { flex: 1; min-width: 150px; overflow-wrap: break-word; word-wrap: break-word; }
 .timeline-item .info .top { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
 .timeline-item .time { font-size: 0.8rem; color: var(--text-muted); font-weight: 500; font-variant-numeric: tabular-nums; }
 .timeline-item .app-name { font-weight: 600; font-size: 0.9rem; }

@@ -138,35 +138,38 @@ class DevContextDetector:
         return self._find_most_recent_repo()
 
     def _find_most_recent_repo(self) -> Optional["git.Repo"]:
-        """Find the git repo with the most recent activity in workspace dirs."""
+        """Find the git repo with the most recent activity in workspace dirs.
+        Scans up to 4 levels deep to handle nested project structures."""
         import git
 
         most_recent = None
         most_recent_time = 0
+        max_depth = 4
 
         for ws_dir in self._workspace_dirs:
             ws_path = Path(ws_dir).resolve()
             if not ws_path.exists():
                 continue
 
-            # Check immediate children for .git dirs
-            try:
-                for child in ws_path.iterdir():
-                    if not child.is_dir():
-                        continue
-                    git_dir = child / ".git"
-                    if git_dir.exists():
-                        try:
-                            mtime = git_dir.stat().st_mtime
-                            if mtime > most_recent_time:
-                                repo = git.Repo(str(child))
-                                if not repo.bare:
-                                    most_recent = repo
-                                    most_recent_time = mtime
-                        except (git.InvalidGitRepositoryError, OSError):
-                            continue
-            except PermissionError:
-                continue
+            for root, dirs, _files in os.walk(str(ws_path)):
+                # Enforce depth limit
+                depth = len(Path(root).relative_to(ws_path).parts)
+                if depth >= max_depth:
+                    dirs.clear()  # Stop descending
+                    continue
+
+                if ".git" in dirs:
+                    git_path = Path(root)
+                    try:
+                        mtime = (git_path / ".git").stat().st_mtime
+                        if mtime > most_recent_time:
+                            repo = git.Repo(str(git_path))
+                            if not repo.bare:
+                                most_recent = repo
+                                most_recent_time = mtime
+                    except (git.InvalidGitRepositoryError, OSError):
+                        pass
+                    dirs.remove(".git")  # Don't descend into .git itself
 
         return most_recent
 
