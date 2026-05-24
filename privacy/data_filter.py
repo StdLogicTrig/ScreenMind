@@ -10,6 +10,21 @@ from typing import Optional
 
 # ── Pattern Definitions ──────────────────────────────────────────────
 
+def _luhn_check(number: str) -> bool:
+    """Validate a credit card number using the Luhn algorithm."""
+    digits = [int(d) for d in number if d.isdigit()]
+    if len(digits) < 13 or len(digits) > 19:
+        return False
+    checksum = 0
+    for i, d in enumerate(reversed(digits)):
+        if i % 2 == 1:
+            d *= 2
+            if d > 9:
+                d -= 9
+        checksum += d
+    return checksum % 10 == 0
+
+
 PATTERNS = {
     "credit_card": {
         "label": "Credit Card",
@@ -17,6 +32,7 @@ PATTERNS = {
             r"\b(?:\d{4}[\s\-]?){3}\d{4}\b"
         ),
         "replacement": "[REDACTED:card]",
+        "validator": _luhn_check,
     },
     "ssn": {
         "label": "SSN",
@@ -29,16 +45,31 @@ PATTERNS = {
         "label": "API Key",
         "regex": re.compile(
             r"\b(?:"
-            r"sk-[A-Za-z0-9]{20,}"           # OpenAI
-            r"|ghp_[A-Za-z0-9]{36,}"          # GitHub PAT
-            r"|AKIA[A-Z0-9]{16}"              # AWS Access Key
-            r"|xox[bps]-[A-Za-z0-9\-]{10,}"   # Slack
-            r"|glpat-[A-Za-z0-9\-]{20,}"      # GitLab
-            r"|AIza[A-Za-z0-9\-_]{35}"        # Google API
+            r"sk-ant-[A-Za-z0-9\-]{20,}"    # Anthropic (before sk- to prevent false match)
+            r"|sk-[A-Za-z0-9]{20,}"          # OpenAI
+            r"|sk_live_[A-Za-z0-9]{20,}"     # Stripe live
+            r"|sk_test_[A-Za-z0-9]{20,}"     # Stripe test
+            r"|pk_live_[A-Za-z0-9]{20,}"     # Stripe publishable
+            r"|ghp_[A-Za-z0-9]{36,}"         # GitHub PAT
+            r"|github_pat_[A-Za-z0-9_]{20,}" # GitHub fine-grained PAT
+            r"|gho_[A-Za-z0-9]{36,}"         # GitHub OAuth
+            r"|AKIA[A-Z0-9]{16}"             # AWS Access Key
+            r"|xox[bps]-[A-Za-z0-9\-]{10,}"  # Slack
+            r"|glpat-[A-Za-z0-9\-]{20,}"     # GitLab
+            r"|AIza[A-Za-z0-9\-_]{35}"       # Google API
+            r"|whsec_[A-Za-z0-9]{20,}"       # Webhook secrets
+            r"|ntn_[A-Za-z0-9]{20,}"         # Notion
             r")\b",
             re.ASCII,
         ),
         "replacement": "[REDACTED:key]",
+    },
+    "jwt": {
+        "label": "JWT Token",
+        "regex": re.compile(
+            r"\beyJ[A-Za-z0-9_-]{20,}\.eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\b"
+        ),
+        "replacement": "[REDACTED:jwt]",
     },
     "password": {
         "label": "Password",
@@ -69,7 +100,7 @@ def filter_sensitive_text(
     Args:
         text: Raw OCR / organized text
         enabled_types: List of pattern keys to apply.
-            Defaults to ["credit_card", "ssn", "api_key", "password"]
+            Defaults to ["credit_card", "ssn", "api_key", "jwt", "password"]
 
     Returns:
         {
@@ -91,7 +122,7 @@ def filter_sensitive_text(
         }
 
     if enabled_types is None:
-        enabled_types = ["credit_card", "ssn", "api_key", "password"]
+        enabled_types = ["credit_card", "ssn", "api_key", "jwt", "password"]
 
     clean = text
     total_redacted = 0
@@ -111,11 +142,15 @@ def filter_sensitive_text(
         count = len(matches)
 
         if count > 0:
-            # For password pattern, the replacement is slightly different
-            # because the regex captures the password value in group 1
-            if ptype == "password":
-                # Replace the whole match (password: value) with redacted
-                clean = regex.sub(replacement, clean)
+            # If pattern has a validator (e.g. Luhn for credit cards),
+            # only redact matches that pass validation
+            validator = pattern_info.get("validator")
+            if validator:
+                def _validated_sub(m):
+                    return replacement if validator(m.group()) else m.group()
+                before_count = clean.count(replacement)
+                clean = regex.sub(_validated_sub, clean)
+                count = clean.count(replacement) - before_count
             else:
                 clean = regex.sub(replacement, clean)
 
@@ -137,5 +172,5 @@ def filter_sensitive_text(
 def parse_enabled_types(types_str: str) -> list:
     """Parse comma-separated filter types string into a list."""
     if not types_str:
-        return ["credit_card", "ssn", "api_key", "password"]
+        return ["credit_card", "ssn", "api_key", "jwt", "password"]
     return [t.strip() for t in types_str.split(",") if t.strip() in PATTERNS]
