@@ -191,6 +191,7 @@ class Settings(BaseSettings):
         "env_file": ".env",
         "env_file_encoding": "utf-8",
         "case_sensitive": False,
+        "validate_assignment": True,
     }
 
     # ── Derived Paths ────────────────────────────────────────────────────
@@ -286,7 +287,7 @@ class Settings(BaseSettings):
                 }
                 for k, v in overrides.items():
                     if k in ALLOWED and hasattr(self, k):
-                        object.__setattr__(self, k, v)
+                        setattr(self, k, v)
                 print(f"[Config] Loaded runtime overrides: {list(overrides.keys())}")
             except Exception as e:
                 print(f"[Config] Failed to load settings.json: {e}")
@@ -324,7 +325,7 @@ class Settings(BaseSettings):
             if k in ALLOWED:
                 existing[k] = v
                 if hasattr(self, k):
-                    object.__setattr__(self, k, v)
+                    setattr(self, k, v)
         path.write_text(json.dumps(existing, indent=2))
 
 

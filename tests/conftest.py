@@ -77,7 +77,7 @@ def app(db):
 
     # Directly clear PIN so auth middleware passes all requests during tests
     original_pin = settings.dashboard_pin_hash
-    object.__setattr__(settings, 'dashboard_pin_hash', '')
+    settings.dashboard_pin_hash = ''
 
     application = create_app(database=db)
 
@@ -101,7 +101,7 @@ def app(db):
     yield application
 
     # Restore
-    object.__setattr__(settings, 'dashboard_pin_hash', original_pin)
+    settings.dashboard_pin_hash = original_pin
 
 
 @pytest.fixture

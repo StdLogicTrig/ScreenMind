@@ -109,7 +109,7 @@ async def set_pin(request: Request):
         new_hash = ""  # Clear PIN
 
     settings.save_runtime_overrides({"dashboard_pin_hash": new_hash})
-    object.__setattr__(settings, "dashboard_pin_hash", new_hash)
+    settings.dashboard_pin_hash = new_hash
 
     # Create session for the user who just set the PIN
     token = create_session()
