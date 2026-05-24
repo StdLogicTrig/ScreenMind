@@ -11,7 +11,30 @@ from pathlib import Path
 from typing import List, Optional
 
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, ValidationError
+
+
+# Settings keys that can be overridden at runtime (from dashboard or settings.json)
+_ALLOWED_OVERRIDES = {
+    "capture_interval", "performance_mode",
+    "context_window", "kv_cache_quant", "flash_attention",
+    "analysis_mode",
+    "auto_pause_heavy_apps", "heavy_apps",
+    "defer_analysis", "meeting_transcription",
+    "meeting_apps", "whisper_model",
+    "ollama_model", "active_model", "retention_days",
+    "obsidian_enabled", "obsidian_vault_path",
+    "notion_enabled", "notion_token", "notion_database_id",
+    "webhook_enabled", "webhook_url", "webhook_events", "webhook_secret", "webhook_headers",
+    "smart_notifications", "distraction_minutes", "break_reminder_minutes",
+    "auto_bookmark", "auto_bookmark_keywords",
+    "agents_enabled", "agents_auto_run_python",
+    "sensitive_filter_enabled", "sensitive_filter_types",
+    "dashboard_pin_hash", "dashboard_lock_timeout",
+    "encryption_enabled",
+    "bookmark_hotkey", "pause_hotkey", "voice_hotkey",
+    "setup_complete",
+}
 
 
 class Settings(BaseSettings):
@@ -265,55 +288,18 @@ class Settings(BaseSettings):
         if path.exists():
             try:
                 overrides = json.loads(path.read_text())
-                ALLOWED = {
-                    "capture_interval", "performance_mode",
-                    "context_window", "kv_cache_quant", "flash_attention",
-                    "analysis_mode",
-                    "auto_pause_heavy_apps", "heavy_apps",
-                    "defer_analysis", "meeting_transcription",
-                    "meeting_apps", "whisper_model",
-                    "ollama_model", "active_model", "retention_days",
-                    "obsidian_enabled", "obsidian_vault_path",
-                    "notion_enabled", "notion_token", "notion_database_id",
-                    "webhook_enabled", "webhook_url", "webhook_events", "webhook_secret", "webhook_headers",
-                    "smart_notifications", "distraction_minutes", "break_reminder_minutes",
-                    "auto_bookmark", "auto_bookmark_keywords",
-                    "agents_enabled", "agents_auto_run_python",
-                    "sensitive_filter_enabled", "sensitive_filter_types",
-                    "dashboard_pin_hash", "dashboard_lock_timeout",
-                    "encryption_enabled",
-                    "bookmark_hotkey", "pause_hotkey", "voice_hotkey",
-                    "setup_complete",
-                }
                 for k, v in overrides.items():
-                    if k in ALLOWED and hasattr(self, k):
-                        setattr(self, k, v)
+                    if k in _ALLOWED_OVERRIDES and hasattr(self, k):
+                        try:
+                            setattr(self, k, v)
+                        except (ValueError, ValidationError):
+                            print(f"[Config] Invalid override ignored: {k}={v!r}")
                 print(f"[Config] Loaded runtime overrides: {list(overrides.keys())}")
             except Exception as e:
                 print(f"[Config] Failed to load settings.json: {e}")
 
     def save_runtime_overrides(self, updates: dict):
         """Save dashboard settings to settings.json."""
-        ALLOWED = {
-            "capture_interval", "performance_mode",
-            "context_window", "kv_cache_quant", "flash_attention",
-            "analysis_mode",
-            "auto_pause_heavy_apps", "heavy_apps",
-            "defer_analysis", "meeting_transcription",
-            "meeting_apps", "whisper_model",
-            "ollama_model", "active_model", "retention_days",
-            "obsidian_enabled", "obsidian_vault_path",
-            "notion_enabled", "notion_token", "notion_database_id",
-            "webhook_enabled", "webhook_url", "webhook_events", "webhook_secret", "webhook_headers",
-            "smart_notifications", "distraction_minutes", "break_reminder_minutes",
-            "auto_bookmark", "auto_bookmark_keywords",
-            "agents_enabled", "agents_auto_run_python",
-            "sensitive_filter_enabled", "sensitive_filter_types",
-            "dashboard_pin_hash", "dashboard_lock_timeout",
-            "encryption_enabled",
-            "bookmark_hotkey", "pause_hotkey", "voice_hotkey",
-            "setup_complete",
-        }
         path = self.settings_json_path
         existing = {}
         if path.exists():
@@ -322,10 +308,13 @@ class Settings(BaseSettings):
             except Exception:
                 pass
         for k, v in updates.items():
-            if k in ALLOWED:
+            if k in _ALLOWED_OVERRIDES:
                 existing[k] = v
                 if hasattr(self, k):
-                    setattr(self, k, v)
+                    try:
+                        setattr(self, k, v)
+                    except (ValueError, ValidationError):
+                        pass  # saved to JSON but not applied in memory
         path.write_text(json.dumps(existing, indent=2))
 
 
