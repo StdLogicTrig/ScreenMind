@@ -56,7 +56,7 @@
 ### ⚡ Performance
 
 - **Three Analysis Modes** — Accurate (~76s, deep thinking + layout), Balanced (~40s, thinking), or Fast (~12s, no thinking). You choose.
-- **Per-App pHash Cache** — 3-tier caching with app-aware staleness. Communication apps refresh faster than IDEs. ~40% fewer inference calls.
+- **Per-App pHash Cache** — 3-tier caching with app-aware staleness. Communication apps refresh faster than IDEs. Significantly fewer inference calls.
 - **Chat-First GPU Priority** — Chat cancels in-flight analysis instantly. GPU freed in <1s.
 - **Auto-Pause Heavy Apps** — Games, video editors, 3D software detected → capture pauses automatically.
 
@@ -422,7 +422,7 @@ All settings configurable via `.env`, environment variables, or the **Settings**
 | Layer | Technology | Why |
 |-------|-----------|-----|
 | **Vision + Audio AI** | Gemma 4 E2B (via llama.cpp) | Only model with vision + audio + reasoning that runs locally on 4GB VRAM |
-| **Inference Server** | llama-server (llama.cpp) | Direct GGUF inference, OpenAI-compatible API, 8-12% faster than Ollama |
+| **Inference Server** | llama-server (llama.cpp) | Direct GGUF inference, OpenAI-compatible API |
 | **OCR** | EasyOCR | Extracts screen text fed to Gemma as context |
 | **Embeddings** | all-MiniLM-L6-v2 | 80MB, runs on CPU, 384-dim vectors for semantic search |
 | **Backend** | FastAPI + Uvicorn | Async-first, auto-generated API docs |
