@@ -1,87 +1,66 @@
-"""
-Test script: Compute pHash distances between consecutive screenshots
-to determine safe dedup threshold.
-"""
-import sys
-sys.path.insert(0, ".")
-
-from pathlib import Path
+"""Test pHash deduplication logic with synthetic images."""
+import pytest
 from PIL import Image
 import imagehash
 
-from config import settings
 
-def compute_phash(img_path):
-    img = Image.open(img_path)
-    return imagehash.phash(img)
+def _make_image(color: tuple, size=(200, 200)) -> Image.Image:
+    """Create a solid-color test image."""
+    return Image.new("RGB", size, color=color)
 
-def main():
-    ss_dir = settings.screenshots_dir
-    files = sorted(ss_dir.rglob("*.jpg"), key=lambda f: f.name)
-    print(f"Found {len(files)} screenshots in {ss_dir}\n")
 
-    if len(files) < 2:
-        print("Need at least 2 screenshots to compare")
-        return
+def test_identical_images_have_zero_distance():
+    """Two identical images should have pHash distance 0."""
+    img = _make_image((128, 128, 128))
+    h1 = imagehash.phash(img)
+    h2 = imagehash.phash(img)
+    assert h1 - h2 == 0
 
-    # Compute all hashes
-    hashes = []
-    for f in files:
-        try:
-            h = compute_phash(f)
-            hashes.append((f, h))
-        except Exception as e:
-            print(f"  Error: {f.name}: {e}")
 
-    # Compute consecutive distances
-    distances = []
-    print(f"{'#':>3}  {'Distance':>8}  {'File A':>40}  ->  {'File B'}")
-    print("-" * 110)
-    for i in range(len(hashes) - 1):
-        fa, ha = hashes[i]
-        fb, hb = hashes[i + 1]
-        dist = ha - hb
-        distances.append(dist)
-        marker = ""
-        if dist <= 2:
-            marker = "  <- IDENTICAL (tier 0-2)"
-        elif dist <= 7:
-            marker = "  <- MINOR (tier 3-7)"
-        elif dist <= 10:
-            marker = "  <- THRESHOLD ZONE (8-10)"
-        else:
-            marker = "  <- MAJOR (11+)"
-        print(f"{i+1:>3}  {dist:>8}  {fa.name:>40}  ->  {fb.name}{marker}")
+def test_similar_images_have_low_distance():
+    """Slightly different colors should produce low pHash distance."""
+    img_a = _make_image((128, 128, 128))
+    img_b = _make_image((130, 128, 128))  # barely different
+    dist = imagehash.phash(img_a) - imagehash.phash(img_b)
+    assert dist <= 10, f"Expected low distance for similar images, got {dist}"
 
-    # Distribution
-    print(f"\n{'=' * 60}")
-    print("DISTRIBUTION")
-    print(f"{'=' * 60}")
-    buckets = {
-        "0-2 (identical)": len([d for d in distances if d <= 2]),
-        "3-7 (minor change)": len([d for d in distances if 3 <= d <= 7]),
-        "8-10 (threshold zone)": len([d for d in distances if 8 <= d <= 10]),
-        "11+ (major change)": len([d for d in distances if d >= 11]),
-    }
-    for label, count in buckets.items():
-        pct = count / len(distances) * 100
-        bar = "#" * int(pct / 2)
-        print(f"  {label:>25}: {count:>3} ({pct:>5.1f}%)  {bar}")
 
-    print(f"\n  Total pairs: {len(distances)}")
-    print(f"  Min distance: {min(distances)}")
-    print(f"  Max distance: {max(distances)}")
-    print(f"  Mean: {sum(distances)/len(distances):.1f}")
-    print(f"  Median: {sorted(distances)[len(distances)//2]}")
+def test_different_images_have_high_distance():
+    """Very different images should produce high pHash distance."""
+    img_white = _make_image((255, 255, 255))
+    img_dark_pattern = Image.new("RGB", (200, 200))
+    # Draw a checkerboard-like pattern to create structural difference
+    pixels = img_dark_pattern.load()
+    for x in range(200):
+        for y in range(200):
+            pixels[x, y] = (0, 0, 0) if (x // 25 + y // 25) % 2 == 0 else (255, 255, 255)
 
-    # Threshold analysis
-    print(f"\n{'=' * 60}")
-    print("THRESHOLD ANALYSIS")
-    print(f"{'=' * 60}")
-    for t in [8, 9, 10, 11, 12]:
-        skipped = len([d for d in distances if d < t])
-        pct = skipped / len(distances) * 100
-        print(f"  Threshold {t:>2}: would skip {skipped}/{len(distances)} ({pct:.0f}%) captures")
+    dist = imagehash.phash(img_white) - imagehash.phash(img_dark_pattern)
+    assert dist > 5, f"Expected high distance for different images, got {dist}"
 
-if __name__ == "__main__":
-    main()
+
+def test_deduplicator_skips_identical():
+    """ScreenDeduplicator.is_duplicate correctly detects identical frames."""
+    from capture.dedup import ScreenDeduplicator
+    dedup = ScreenDeduplicator(threshold=8)
+    img = _make_image((100, 100, 100))
+    # First image is never a duplicate
+    assert dedup.is_duplicate(img) is False
+    # Same image again should be duplicate
+    assert dedup.is_duplicate(img) is True
+
+
+def test_deduplicator_passes_different():
+    """ScreenDeduplicator allows significantly different frames through."""
+    from capture.dedup import ScreenDeduplicator
+    dedup = ScreenDeduplicator(threshold=8)
+
+    img_a = _make_image((255, 255, 255))
+    img_b = Image.new("RGB", (200, 200))
+    pixels = img_b.load()
+    for x in range(200):
+        for y in range(200):
+            pixels[x, y] = (0, 0, 0) if (x // 25 + y // 25) % 2 == 0 else (255, 255, 255)
+
+    assert dedup.is_duplicate(img_a) is False
+    assert dedup.is_duplicate(img_b) is False  # different enough to pass

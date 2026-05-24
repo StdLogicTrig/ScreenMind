@@ -1,33 +1,33 @@
-"""Test OCR accuracy on existing screenshots."""
-import sys, os, glob, time
-sys.path.insert(0, r"c:\Users\Ayush\Desktop\OS contri\openrecall")
-
+"""Test OCR extraction functionality."""
+import pytest
 from PIL import Image
-from engine.ocr import OCRExtractor
 
-# Find latest screenshots
-screenshot_dir = r"C:\Users\Ayush\.openrecall\screenshots"
-files = sorted(glob.glob(os.path.join(screenshot_dir, "**", "*.jpg"), recursive=True), key=os.path.getmtime, reverse=True)
 
-if not files:
-    print("No screenshots found!")
-    sys.exit(1)
+def test_ocr_extractor_init():
+    """OCRExtractor initializes without crashing."""
+    from engine.ocr import OCRExtractor
+    ocr = OCRExtractor()
+    assert ocr is not None
 
-ocr = OCRExtractor()
-# Test on the most recent screenshot
-img_path = files[0]
-print(f"Testing on: {os.path.basename(img_path)}")
-print(f"Image size: {Image.open(img_path).size}")
-print()
 
-img = Image.open(img_path)
-start = time.time()
-text = ocr.extract_text(img)
-elapsed = time.time() - start
+def test_ocr_extract_text_returns_string():
+    """extract_text returns a string (or None) for a blank image."""
+    from engine.ocr import OCRExtractor
+    ocr = OCRExtractor()
+    if not ocr.is_available:
+        pytest.skip("EasyOCR not available")
+    img = Image.new("RGB", (200, 100), color="white")
+    result = ocr.extract_text(img)
+    assert result is None or isinstance(result, str)
 
-print(f"Time: {elapsed:.1f}s")
-print(f"Text length: {len(text or '')} chars")
-print(f"\n{'='*60}")
-print("EXTRACTED TEXT:")
-print("="*60)
-print(text or "(nothing)")
+
+def test_ocr_extract_text_with_boxes_format():
+    """extract_text_with_boxes returns (text, boxes) tuple."""
+    from engine.ocr import OCRExtractor
+    ocr = OCRExtractor()
+    if not ocr.is_available:
+        pytest.skip("EasyOCR not available")
+    img = Image.new("RGB", (200, 100), color="white")
+    text, boxes = ocr.extract_text_with_boxes(img)
+    assert text is None or isinstance(text, str)
+    assert boxes is None or isinstance(boxes, list)
