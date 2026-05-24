@@ -1,6 +1,8 @@
 """Auth routes — PIN lock, session management."""
 
 import hashlib
+import os
+import secrets
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -9,6 +11,27 @@ from config import settings
 from api.dependencies import verify_session, create_session, delete_session
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+
+def _hash_pin(pin: str, salt: str = None) -> str:
+    """Hash PIN with PBKDF2-SHA256 (salted, 100k iterations).
+    Returns 'salt$hash' format. If salt provided, uses it (for verification)."""
+    if salt is None:
+        salt = os.urandom(16).hex()
+    dk = hashlib.pbkdf2_hmac("sha256", pin.encode(), salt.encode(), 100_000)
+    return f"{salt}${dk.hex()}"
+
+
+def _verify_pin(pin: str, stored_hash: str) -> bool:
+    """Verify PIN against stored 'salt$hash'. Also supports legacy plain SHA-256."""
+    if not stored_hash:
+        return False
+    # New format: salt$hash
+    if "$" in stored_hash:
+        salt = stored_hash.split("$")[0]
+        return _hash_pin(pin, salt) == stored_hash
+    # Legacy: plain SHA-256 (migrate on next set-pin)
+    return hashlib.sha256(pin.encode()).hexdigest() == stored_hash
 
 
 @router.get("/status")
@@ -36,8 +59,7 @@ async def mark_setup_complete(request: Request):
     pin = body.get("pin", "")
     updates = {"setup_complete": True}
     if pin:
-        pin_hash = hashlib.sha256(pin.encode()).hexdigest()
-        updates["dashboard_pin_hash"] = pin_hash
+        updates["dashboard_pin_hash"] = _hash_pin(pin)
     settings.save_runtime_overrides(updates)
     if pin:
         token = create_session()
@@ -56,9 +78,8 @@ async def verify_pin(request: Request):
     """Verify PIN and create session."""
     body = await request.json()
     pin = str(body.get("pin", ""))
-    pin_hash = hashlib.sha256(pin.encode()).hexdigest()
 
-    if pin_hash == settings.dashboard_pin_hash:
+    if _verify_pin(pin, settings.dashboard_pin_hash):
         token = create_session()
         response = JSONResponse({"ok": True})
         response.set_cookie(
@@ -79,12 +100,11 @@ async def set_pin(request: Request):
 
     # If PIN already set, verify current PIN first
     if settings.dashboard_pin_hash:
-        current_hash = hashlib.sha256(current.encode()).hexdigest()
-        if current_hash != settings.dashboard_pin_hash:
+        if not _verify_pin(current, settings.dashboard_pin_hash):
             return JSONResponse({"ok": False, "error": "Current PIN incorrect"}, status_code=401)
 
     if pin:
-        new_hash = hashlib.sha256(pin.encode()).hexdigest()
+        new_hash = _hash_pin(pin)
     else:
         new_hash = ""  # Clear PIN
 

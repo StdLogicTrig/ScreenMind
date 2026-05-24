@@ -116,20 +116,29 @@ async def toggle_agent(name: str, request: Request):
 
 
 @router.post("/{name}/run")
-async def run_agent_now(name: str):
-    """Trigger an immediate agent run."""
-    from engine.agent_runner import discover_agents, run_agent
+async def run_agent_now(name: str, request: Request):
+    """Trigger an immediate agent run.
+    Python agents require approval OR X-Confirm header.
+    """
+    from engine.agent_runner import discover_agents, run_agent, _approved_plugins
     agents = discover_agents()
     for a in agents:
         if a.get("slug", a["name"]) == name:
+            # Python agents: must be approved or have confirmation header
+            if a["type"] == "python" and not settings.agents_auto_run_python:
+                if a.get("filepath", "") not in _approved_plugins:
+                    if request.headers.get("X-Confirm") != "true":
+                        return {"status": "error", "error": "Python agent not approved. Approve it first or pass X-Confirm: true header."}
             result = await asyncio.get_event_loop().run_in_executor(None, lambda: run_agent(a))
             return result
     return {"status": "error", "error": "Agent not found"}
 
 
 @router.post("/{name}/approve")
-async def approve_agent(name: str):
-    """Approve a Python plugin to run."""
+async def approve_agent(name: str, request: Request):
+    """Approve a Python plugin to run. Requires X-Confirm header."""
+    if request.headers.get("X-Confirm") != "true":
+        raise HTTPException(status_code=403, detail="Approving Python agents requires X-Confirm: true header")
     from engine.agent_runner import discover_agents, approve_plugin
     agents = discover_agents()
     for a in agents:
@@ -183,12 +192,18 @@ async def get_agent_outputs(name: str):
 
 @router.post("/create")
 async def create_agent(request: Request):
-    """Create a new agent from template."""
+    """Create a new agent from template.
+    Python agents require X-Confirm: true header.
+    """
     from engine.agent_runner import get_agents_dir
     body = await request.json()
     name = body.get("name", "my-agent").strip().lower().replace(" ", "-")
     agent_type = body.get("type", "markdown")
     agents_dir = get_agents_dir()
+
+    # Python agent creation requires explicit confirmation
+    if agent_type == "python" and request.headers.get("X-Confirm") != "true":
+        raise HTTPException(status_code=403, detail="Python agent creation requires X-Confirm: true header")
 
     if agent_type == "python":
         filepath = agents_dir / f"{name}.py"
@@ -240,7 +255,9 @@ async def get_agent_content(name: str):
 
 @router.put("/{name}/content")
 async def update_agent_content(name: str, request: Request):
-    """Update the content of an agent file."""
+    """Update the content of an agent file.
+    Python agents require X-Confirm: true header (prevents blind writes from scripts/XSS).
+    """
     from engine.agent_runner import get_agents_dir
     body = await request.json()
     content = body.get("content", "")
@@ -248,6 +265,9 @@ async def update_agent_content(name: str, request: Request):
     for ext in [".md", ".py"]:
         filepath = agents_dir / f"{name}{ext}"
         if filepath.exists():
+            # Python files require explicit confirmation header
+            if ext == ".py" and request.headers.get("X-Confirm") != "true":
+                raise HTTPException(status_code=403, detail="Python agent writes require X-Confirm: true header")
             filepath.write_text(content, encoding="utf-8")
             return {"ok": True, "name": name}
     return {"ok": False, "error": "Agent not found"}
