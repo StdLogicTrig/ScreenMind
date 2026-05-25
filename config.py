@@ -7,6 +7,7 @@ Runtime changes (from dashboard) are persisted to settings.json.
 
 import json
 import os
+import threading
 from pathlib import Path
 from typing import List, Optional
 
@@ -36,6 +37,8 @@ _ALLOWED_OVERRIDES = {
     "setup_complete",
 }
 
+# Lock to prevent concurrent read-modify-write races on settings.json
+_settings_lock = threading.Lock()
 
 class Settings(BaseSettings):
     """Application settings loaded from environment / .env file."""
@@ -287,7 +290,8 @@ class Settings(BaseSettings):
         path = self.settings_json_path
         if path.exists():
             try:
-                overrides = json.loads(path.read_text())
+                with _settings_lock:
+                    overrides = json.loads(path.read_text())
                 for k, v in overrides.items():
                     if k in _ALLOWED_OVERRIDES and hasattr(self, k):
                         try:
@@ -300,22 +304,23 @@ class Settings(BaseSettings):
 
     def save_runtime_overrides(self, updates: dict):
         """Save dashboard settings to settings.json."""
-        path = self.settings_json_path
-        existing = {}
-        if path.exists():
-            try:
-                existing = json.loads(path.read_text())
-            except Exception:
-                pass
-        for k, v in updates.items():
-            if k in _ALLOWED_OVERRIDES:
-                existing[k] = v
-                if hasattr(self, k):
-                    try:
-                        setattr(self, k, v)
-                    except (ValueError, ValidationError):
-                        pass  # saved to JSON but not applied in memory
-        path.write_text(json.dumps(existing, indent=2))
+        with _settings_lock:
+            path = self.settings_json_path
+            existing = {}
+            if path.exists():
+                try:
+                    existing = json.loads(path.read_text())
+                except Exception:
+                    pass
+            for k, v in updates.items():
+                if k in _ALLOWED_OVERRIDES:
+                    existing[k] = v
+                    if hasattr(self, k):
+                        try:
+                            setattr(self, k, v)
+                        except (ValueError, ValidationError):
+                            pass  # saved to JSON but not applied in memory
+            path.write_text(json.dumps(existing, indent=2))
 
 
 # Singleton instance

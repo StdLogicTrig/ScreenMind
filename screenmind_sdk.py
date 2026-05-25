@@ -11,6 +11,7 @@ import json
 import os
 import re
 import time
+import urllib.parse
 import urllib.request
 import urllib.error
 from collections import Counter
@@ -89,7 +90,7 @@ def search(query: str, limit: int = 10) -> list:
 
     Returns list of matching activities.
     """
-    result = _get(f"/api/search?q={urllib.request.quote(query)}&limit={limit}")
+    result = _get(f"/api/search?q={urllib.parse.quote(query)}&limit={limit}")
     return result.get("results", [])
 
 
@@ -156,11 +157,11 @@ def get_activities(
     if date:
         params.append(f"date={date}")
     if app:
-        params.append(f"app={urllib.request.quote(app)}")
+        params.append(f"app={urllib.parse.quote(app)}")
     if category:
-        params.append(f"category={urllib.request.quote(category)}")
+        params.append(f"category={urllib.parse.quote(category)}")
     if url_contains:
-        params.append(f"url_contains={urllib.request.quote(url_contains)}")
+        params.append(f"url_contains={urllib.parse.quote(url_contains)}")
 
     result = _get(f"/api/agents/sdk/activities?{'&'.join(params)}")
     return result.get("activities", [])

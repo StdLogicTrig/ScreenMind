@@ -25,14 +25,15 @@ import sys
 # MCP stdio transport uses stdout for protocol messages.
 # Any print() from libraries (Embedder, Database, Config) would corrupt the protocol.
 # We redirect ALL print output to stderr, then restore stdout for MCP.
+# Only when running as main script — not when imported as a module.
 _real_stdout = sys.stdout
-sys.stdout = sys.stderr
+if __name__ == "__main__":
+    sys.stdout = sys.stderr
+    # Add project root to path so imports work when spawned by an external process
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from datetime import date, datetime, timedelta
 from typing import Optional
-
-# Add project root to path so imports work when spawned by an external process
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from mcp.server.fastmcp import FastMCP
 
