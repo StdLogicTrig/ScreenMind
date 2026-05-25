@@ -324,9 +324,12 @@ def capture_now() -> str:
     import urllib.request
     import urllib.error
 
+    # 0.0.0.0/:: are listen addresses, not connect addresses
+    host = "127.0.0.1" if settings.api_host in ("0.0.0.0", "::") else settings.api_host
+
     try:
         req = urllib.request.Request(
-            f"http://localhost:{settings.api_port}/api/capture/bookmark",
+            f"http://{host}:{settings.api_port}/api/capture/bookmark",
             method="POST",
             headers={"Content-Type": "application/json"},
         )

@@ -9,7 +9,7 @@ import json
 import os
 import threading
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic_settings import BaseSettings
 from pydantic import Field, ValidationError
@@ -118,7 +118,7 @@ class Settings(BaseSettings):
     )
 
     # ── Resource Management ──────────────────────────────────────────────
-    performance_mode: str = Field(
+    performance_mode: Literal["minimal", "balanced", "maximum"] = Field(
         default="balanced",
         description="'minimal' (CPU-heavy, saves VRAM), 'balanced' (default), 'maximum' (full GPU)",
     )
@@ -128,7 +128,7 @@ class Settings(BaseSettings):
         ge=2048,
         le=16384,
     )
-    analysis_mode: str = Field(
+    analysis_mode: Literal["fast", "balanced", "merged"] = Field(
         default="fast",
         description="'fast' (~12s, no thinking), 'balanced' (~40s, thinking), or 'merged' (~76s, thinking+layout)",
     )

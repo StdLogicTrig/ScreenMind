@@ -62,7 +62,7 @@
 
 ### 🔒 Privacy & Security
 
-- **100% Local** — All data stays on your machine. Zero network calls. No telemetry. Ever.
+- **100% Local** — All data stays on your machine. Zero network calls after initial model download. No telemetry. Ever.
 - **Sensitive Data Filter** — Auto-redacts credit cards, SSNs, API keys, passwords before storage.
 - **Encryption at Rest** — AES encryption for screenshots (Fernet + OS keyring).
 - **Dashboard PIN Lock** — Session-based auth with configurable auto-lock timeout.

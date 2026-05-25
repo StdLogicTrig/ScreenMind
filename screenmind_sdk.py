@@ -15,7 +15,6 @@ import threading
 import urllib.parse
 import urllib.request
 import urllib.error
-from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
@@ -41,8 +40,11 @@ def _get(path: str) -> dict:
     try:
         with urllib.request.urlopen(f"{API_BASE}{path}", timeout=15) as resp:
             return json.loads(resp.read())
-    except Exception as e:
+    except (urllib.error.URLError, urllib.error.HTTPError, OSError) as e:
         print(f"[SDK] GET {path} failed: {e}")
+        return {}
+    except json.JSONDecodeError as e:
+        print(f"[SDK] GET {path} invalid JSON: {e}")
         return {}
 
 
@@ -56,8 +58,11 @@ def _post(path: str, data: dict = None) -> dict:
         )
         with urllib.request.urlopen(req, timeout=15) as resp:
             return json.loads(resp.read())
-    except Exception as e:
+    except (urllib.error.URLError, urllib.error.HTTPError, OSError) as e:
         print(f"[SDK] POST {path} failed: {e}")
+        return {}
+    except json.JSONDecodeError as e:
+        print(f"[SDK] POST {path} invalid JSON: {e}")
         return {}
 
 
