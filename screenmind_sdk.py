@@ -11,6 +11,7 @@ import json
 import os
 import re
 import time
+import threading
 import urllib.parse
 import urllib.request
 import urllib.error
@@ -20,9 +21,17 @@ from pathlib import Path
 
 API_BASE = "http://127.0.0.1:7777"
 
+# Thread-local storage for current agent context.
 # Set by agent_runner before calling plugin's run().
-# Fallback for plugins that call state functions outside runner context.
-_current_agent = "unknown"
+_agent_context = threading.local()
+
+
+def _get_current_agent() -> str:
+    return getattr(_agent_context, "name", "unknown")
+
+
+def _set_current_agent(name: str):
+    _agent_context.name = name
 
 
 # ── HTTP Helpers ─────────────────────────────────────────────────────
@@ -61,7 +70,7 @@ def _sanitize_name(name: str) -> str:
 
 def _resolve_agent(agent_name: str = None) -> str:
     """Resolve agent name: explicit param > module global > 'unknown'."""
-    name = agent_name or _current_agent or "unknown"
+    name = agent_name or _get_current_agent() or "unknown"
     return _sanitize_name(name)
 
 
@@ -70,10 +79,20 @@ def _resolve_agent(agent_name: str = None) -> str:
 def get_recent_activity(minutes: int = 30, limit: int = 50) -> list:
     """Get recent screen activities.
 
+    Args:
+        minutes: Only return activities from the last N minutes
+        limit: Max number of results
+
     Returns list of dicts with: id, timestamp, app_name, category, summary, details
     """
     result = _get(f"/api/timeline?limit={limit}")
-    return result.get("activities", [])
+    activities = result.get("activities", [])
+    if minutes and activities:
+        from datetime import datetime, timedelta
+        cutoff = datetime.now() - timedelta(minutes=minutes)
+        cutoff_str = cutoff.isoformat()
+        activities = [a for a in activities if a.get("timestamp", "") >= cutoff_str]
+    return activities
 
 
 def get_activities_by_date(date_str: str, limit: int = 200) -> list:
@@ -126,11 +145,20 @@ def capture_now() -> dict:
 
 
 def write_file(path: str, content: str):
-    """Write content to a file (for Obsidian export, logs, etc.)."""
-    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
+    """Write content to a file (for Obsidian export, logs, etc.).
+
+    Path is restricted to the ScreenMind data directory to prevent
+    agents from writing arbitrary files on the filesystem.
+    """
+    from config import settings
+    resolved = Path(path).resolve()
+    allowed = settings.data_path.resolve()
+    if not resolved.is_relative_to(allowed):
+        raise PermissionError(f"write_file blocked: path must be under {allowed}, got {resolved}")
+    os.makedirs(os.path.dirname(resolved) or ".", exist_ok=True)
+    with open(resolved, "w", encoding="utf-8") as f:
         f.write(content)
-    print(f"[SDK] Wrote {len(content)} bytes to {path}")
+    print(f"[SDK] Wrote {len(content)} bytes to {resolved}")
 
 
 # ── Data Access (New — Filtered Queries) ─────────────────────────────

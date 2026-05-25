@@ -233,6 +233,20 @@ async def main():
     if sys.platform != "win32":
         signal.signal(signal.SIGTERM, handle_signal)
 
+    # ── Safety check: warn/block 0.0.0.0 binding without PIN ──────────
+    if settings.api_host in ("0.0.0.0", "::"):
+        if not settings.dashboard_pin_hash:
+            print("")
+            print("=" * 70)
+            print("WARNING: Binding to 0.0.0.0 exposes ALL screen data to your network!")
+            print("   Set a PIN (dashboard_pin_hash) before exposing to the network.")
+            print("   Falling back to 127.0.0.1 for safety.")
+            print("=" * 70)
+            print("")
+            settings.api_host = "127.0.0.1"
+        else:
+            print("[Main] WARNING: Server exposed to network (0.0.0.0). PIN auth is enabled.")
+
     # ── Start API server in background thread ────────────────────────
     server_config = uvicorn.Config(
         app,

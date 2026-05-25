@@ -479,12 +479,12 @@ def _run_python_plugin(agent: dict) -> str:
 
     # Set SDK agent context before running (for state functions)
     import screenmind_sdk
-    screenmind_sdk._current_agent = sanitized_name
+    screenmind_sdk._set_current_agent(sanitized_name)
 
     try:
         result = module.run(context)
     finally:
-        screenmind_sdk._current_agent = "unknown"
+        screenmind_sdk._set_current_agent("unknown")
 
     return str(result) if result else "Plugin completed (no output)"
 
