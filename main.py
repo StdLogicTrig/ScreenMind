@@ -5,9 +5,10 @@ Includes startup health checks and graceful error handling.
 """
 
 import asyncio
+import shutil
 import signal
 import sys
-import shutil
+
 import threading
 
 import uvicorn
@@ -93,15 +94,11 @@ async def main():
     from engine import model_manager
     if not check_llama_server():
         print("[Main] llama-server not running — starting automatically...")
-        started = model_manager.start_server(settings.active_model)
-        if started:
-            ollama_ok = True
-        else:
-            ollama_ok = False
+        llm_server_ok = model_manager.start_server(settings.active_model)
     else:
-        ollama_ok = True
+        llm_server_ok = True
     check_disk_space()
-    if not ollama_ok:
+    if not llm_server_ok:
         print()
         print("[Main] WARN - Starting without Gemma 4 -- screenshots will be captured")
         print("[Main]   but NOT analyzed until llama-server is available.")
@@ -283,8 +280,8 @@ async def main():
                     _shutil.copy2(f, dest)
                     print(f"[Agents] Installed default agent: {f.name}")
 
-        agent_scheduler = AgentScheduler()
         if settings.agents_enabled:
+            agent_scheduler = AgentScheduler()
             agent_scheduler.start()
             print(f"[Agents] Scheduler started — scanning {agents_dir}")
     except Exception as e:
