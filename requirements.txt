@@ -10,9 +10,6 @@ mss==9.0.2
 Pillow==11.1.0
 imagehash==4.3.1
 
-# Window Title
-pygetwindow==0.0.9
-
 # Hotkey
 keyboard==0.13.5
 
@@ -21,7 +18,7 @@ httpx==0.28.1
 sentence-transformers==3.3.1
 numpy==2.2.2
 easyocr==1.7.2
-uiautomation==2.0.18  # Windows Accessibility API for accurate text extraction
+uiautomation==2.0.18 ; sys_platform == "win32"  # Windows Accessibility API for accurate text extraction
 
 # Git Integration
 gitpython==3.1.44
@@ -38,3 +35,7 @@ sounddevice==0.5.5
 
 # MCP (Model Context Protocol) — exposes screen history to Claude Desktop, Cursor, VS Code
 mcp[cli]==1.26.0
+
+# Encryption at Rest (optional — only needed if ENCRYPTION_ENABLED=true)
+cryptography==46.0.7
+keyring>=25.0  # OS keyring for encryption key storage

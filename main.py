@@ -87,6 +87,13 @@ async def main():
     print(f"[Main] Model: {settings.active_model} ({settings.gemma_mode} mode)")
     if settings.blocked_apps_list:
         print(f"[Main] Privacy zones: {', '.join(settings.blocked_apps_list)}")
+    if settings.gemma_mode == "api":
+        print("")
+        print("=" * 70)
+        print("WARNING: gemma_mode=api — screenshots are sent to Google AI Studio!")
+        print("   This disables the local-only privacy guarantee.")
+        print("   Set GEMMA_MODE=local to keep all data on your machine.")
+        print("=" * 70)
     print()
 
     # ── Health checks ────────────────────────────────────────────────

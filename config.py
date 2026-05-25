@@ -62,9 +62,9 @@ class Settings(BaseSettings):
     )
 
     # ── Model ────────────────────────────────────────────────────────────
-    gemma_mode: str = Field(
+    gemma_mode: Literal["local", "api"] = Field(
         default="local",
-        description="'local' for llama-server, 'api' for Google AI Studio",
+        description="'local' for llama-server, 'api' for Google AI Studio (sends data to Google)",
     )
     ollama_model: str = Field(
         default="gemma4:e2b",
